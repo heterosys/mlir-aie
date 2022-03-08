@@ -1,0 +1,44 @@
+name: Build and Test
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  schedule:
+    - cron:  '00 12 * * *'
+
+jobs:
+  build:
+    name: Build ${{ matrix.build }} ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        build: ["Debug"]
+        os: [ubuntu-18.04, ubuntu-20.04]
+
+    steps:
+      - name: Checkout myself
+        uses: actions/checkout@v2
+
+      - name: Install build dependencies
+        run: |
+          ./.github/scripts/install-build-deps.sh
+
+      - name: Get cmakeModules
+        id: clone-cmakeModules
+        run: git clone --depth 1 https://github.com/Xilinx/cmakeModules.git
+
+      - name: Configure myself
+        run: |
+          cmake -S . -B build \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build }} \
+            -DLLVM_EXTERNAL_LIT=`which lit` \
+            -DCMAKE_MAKE_PROGRAM=ninja \
+            -DCMAKE_MODULE_PATH=cmakeModules \
+            -G Ninja
+
+      - name: Test myself
+        run: cmake --build build --target check-aie
