@@ -22,7 +22,7 @@ if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/me_basic.o)
                     COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/me_basic.o
                     ${CMAKE_CURRENT_BINARY_DIR}/me_basic.o
                     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/me_basic.o)
-elseif(DEFINED VITIS_ROOT)
+elseif(VITIS_LIBME)
     # Extract from Vitis.
     add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/me_basic.o
                        COMMAND ar -x ${VITIS_LIBME} me_basic.o)
@@ -32,7 +32,7 @@ endif()
 add_dependencies(aie-copy-runtime-libs aie-copy-runtime-libs-me_basic )
 
 # copy libc and libm from Vitis
-if(DEFINED VITIS_ROOT)
+if(VITIS_AIE_LIBC AND VITIS_AIE_LIBM)
     add_custom_target(aie-copy-runtime-libs-libc ALL DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/libc.a)
     add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/libc.a
                     COMMAND ${CMAKE_COMMAND} -E copy ${VITIS_AIE_LIBC}

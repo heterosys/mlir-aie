@@ -1,0 +1,111 @@
+name: Nightly Snapshot
+
+on:
+  schedule:
+    - cron:  '00 12 * * *'
+
+jobs:
+  package-deb:
+    if: github.repository == 'heterosys/mlir-aie'
+    strategy:
+      matrix:
+        os: [ubuntu-18.04, ubuntu-20.04]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout myself
+        uses: actions/checkout@v2
+
+      - name: Get current date
+        id: date
+        run: echo "::set-output name=date::$(date -u +'%Y%m%d')"
+
+      - name: Install build dependencies
+        run: |
+          ./.github/scripts/install-build-deps.sh
+
+      - name: Get cmakeModules
+        id: clone-cmakeModules
+        run: git clone --depth 1 https://github.com/Xilinx/cmakeModules.git
+
+      - name: Configure myself
+        run: |
+          cmake -S . -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DPACKAGE_VERSION=${{ steps.date.outputs.date }} \
+            -DCMAKE_MAKE_PROGRAM=ninja \
+            -DCMAKE_MODULE_PATH=cmakeModules \
+            -G Ninja
+
+      - name: Package myself
+        run: cmake --build build --target package
+
+      - name: Save Release URL File for publish
+        uses: actions/upload-artifact@v2
+        with:
+          name: ${{ matrix.os }}-deb
+          path: build/mlir-aie_${{ steps.date.outputs.date }}_amd64.deb
+
+  release:
+    needs: package-deb
+    if: github.repository == 'heterosys/mlir-aie'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get current date
+        id: date
+        run: echo "::set-output name=date::$(date -u +'%Y%m%d')"
+
+      - name: Release snapshot
+        id: create_release
+        uses: actions/create-release@latest
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: snapshot-${{ steps.date.outputs.date }}
+          release_name: Snapshot ${{ steps.date.outputs.date }}
+
+      - name: Output Release URL File
+        run: echo "${{ steps.create_release.outputs.upload_url }}" > release_url.txt
+
+      - name: Save Release URL File for publish
+        uses: actions/upload-artifact@v1
+        with:
+          name: release_url
+          path: release_url.txt
+
+  upload-release:
+    needs: release
+    if: github.repository == 'heterosys/mlir-aie'
+    strategy:
+      matrix:
+        os: [ubuntu-18.04, ubuntu-20.04]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Load release URL file from release job
+        uses: actions/download-artifact@v1
+        with:
+          name: release_url
+
+      - name: Get current date
+        id: date
+        run: echo "::set-output name=date::$(date -u +'%Y%m%d')"
+
+      - name: Get release upload URL
+        id: get_release_info
+        run: |
+          value=`cat release_url/release_url.txt`
+          echo ::set-output name=upload_url::$value
+
+      - name: Load release DEB file from package job
+        uses: actions/download-artifact@v1
+        with:
+          name: ${{ matrix.os }}-deb
+
+      - name: Upload release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.get_release_info.outputs.upload_url }}
+          asset_path: ${{ matrix.os }}-deb/mlir-aie_${{ steps.date.outputs.date }}_amd64.deb
+          asset_name: mlir-aie-${{ matrix.os }}.deb
+          asset_content_type: application/vnd.debian.binary-package
