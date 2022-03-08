@@ -9,5 +9,55 @@ This repository contains an [MLIR-based](https://mlir.llvm.org/) toolchain for X
 
 [Full Documentation](https://xilinx.github.io/mlir-aie/)
 
+## How to Build
+
+### 0. Clone MLIR-AIE and install prerequisites
+
+```
+git clone https://github.com/heterosys/mlir-aie.git
+cd mlir-aie
+git clone --depth 1 https://github.com/Xilinx/cmakeModules.git
+
+sudo apt-get install -y build-essential python3-pip libboost-all-dev
+pip3 install cmake ninja lit psutil
+```
+
+### 1. Install LLVM, Clang, and MLIR
+
+You can download our nightly pre-built snapshot from https://github.com/heterosys/llvm-nightly.
+
+```sh
+OS_DISTRIBUTER=$(lsb_release -is | tr '[:upper:]' '[:lower:]')
+OS_RELEASE=$(lsb_release -rs)
+LLVM_VERSION="snapshot-20220128"
+LLVM_URL="https://github.com/heterosys/llvm-nightly/releases/download/${LLVM_VERSION}/llvm-clang-mlir-dev-${OS_DISTRIBUTER}-${OS_RELEASE}.deb"
+
+TEMP_DEB="$(mktemp)" && \
+  wget -O "${TEMP_DEB}" ${LLVM_URL} && \
+  (sudo dpkg -i "${TEMP_DEB}" || sudo apt-get -yf install)
+rm -f "${TEMP_DEB}"
+```
+
+Please update the variable `LLVM_VERSION` according to `.github/scripts/install-build-deps.sh`.
+
+### 2. Build MLIR-AIE
+
+```sh
+cmake -S . -B build \
+  -DCMAKE_BUILD_TYPE=Debug \
+  -DLLVM_EXTERNAL_LIT=`which lit` \
+  -DCMAKE_MODULE_PATH=../cmakeModules \
+  -DCMAKE_MAKE_PROGRAM=ninja -G Ninja
+cmake --build build --target all
+```
+
+To test MLIR-AIE:
+
+```sh
+cmake --build build --target check-aie
+```
+
+Cheers! 🍺
+
 -----
 <p align="center">Copyright&copy; 2019-2021 Xilinx</p>
