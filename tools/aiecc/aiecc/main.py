@@ -38,6 +38,13 @@ def do_run(command):
     return ret
 
 def run_flow(opts, tmpdirname):
+    if shutil.which("clang_wrapper"):
+      cc_path = "clang_wrapper"
+    else:
+      cc_path = "clang"
+    cc_path = os.getenv('CC', cc_path)
+    ld_path = os.getenv('LD', 'lld')
+
     thispath = os.path.dirname(os.path.realpath(__file__))
     me_basic_o = os.path.join(thispath, '..','..','runtime_lib', 'me_basic.o')
     libc = os.path.join(thispath, '..','..','runtime_lib', 'libc.a')
@@ -45,7 +52,7 @@ def run_flow(opts, tmpdirname):
     chess_intrinsic_wrapper_cpp = os.path.join(thispath, '..','..','runtime_lib', 'chess_intrinsic_wrapper.cpp')
 
     file_with_addresses = os.path.join(tmpdirname, 'input_with_addresses.mlir')
-    do_call(['aie-opt', '--lower-affine', '--aie-register-objectFifos', '--aie-objectFifo-stateful-transform', '--aie-lower-broadcast-packet', '--aie-create-packet-flows', '--aie-assign-buffer-addresses', '-convert-scf-to-cf', opts.filename, '-o', file_with_addresses])
+    do_call(['aie-opt', '--lower-affine', '--aie-register-objectFifos', '--aie-unroll-objectFifos', '--aie-objectFifo-stateful-transform', '--aie-lower-broadcast-packet', '--aie-create-packet-flows', '--aie-assign-buffer-addresses', '-convert-scf-to-cf', opts.filename, '-o', file_with_addresses])
     t = do_run(['aie-translate', '--aie-generate-corelist', file_with_addresses])
     cores = eval(t.stdout)
 
@@ -116,7 +123,7 @@ def run_flow(opts, tmpdirname):
             do_call(['xchesscc_wrapper', '-d', '-f', '+P', '4', file_core_llvmir_chesslinked, link_with_obj, '+l', file_core_bcf, '-o', file_core_elf])
           else:
             do_call(['xchesscc_wrapper', '-c', '-d', '-f', '+P', '4', file_core_llvmir_chesslinked, '-o', file_core_obj])
-            do_call(['clang', '-O2', '--target=aie', file_core_obj, me_basic_o, libm,
+            do_call([cc_path, '-O2', '--target=aie', file_core_obj, me_basic_o, libm,
             '-Wl,-T,'+file_core_ldscript, '-o', file_core_elf])
         else:
           file_core_llvmir_stripped = tmpcorefile(core, "stripped.ll")
@@ -128,7 +135,7 @@ def run_flow(opts, tmpdirname):
             link_with_obj = extract_input_files(file_core_bcf)
             do_call(['xchesscc_wrapper', '-d', '-f', file_core_obj, link_with_obj, '+l', file_core_bcf, '-o', file_core_elf])
           else:
-            do_call(['clang', '-O2', '--target=aie', file_core_obj, me_basic_o, libm,
+            do_call([cc_path, '-O2', '--target=aie', file_core_obj, me_basic_o, libm,
             '-Wl,-T,'+file_core_ldscript, '-o', file_core_elf])
 
 
@@ -151,7 +158,7 @@ def run_flow(opts, tmpdirname):
       if not opts.compile_host:
         return
 
-      cmd = ['clang','--target=aarch64-linux-gnu', '-std=c++11']
+      cmd = [cc_path,'--target=%s' % opts.target, '-std=c++11']
       if(opts.sysroot):
         cmd += ['--sysroot=%s' % opts.sysroot]
       if(opts.xaie == 2):
@@ -167,9 +174,9 @@ def run_flow(opts, tmpdirname):
         cmd += ['-L%s/opt/xaiengine/lib' % opts.sysroot]
       cmd += ['-I%s' % tmpdirname]
       if(opts.xaie == 1):
-        cmd += ['-fuse-ld=lld','-lm','-rdynamic','-lxaiengine','-lmetal','-lopen_amp','-ldl']
+        cmd += ['-fuse-ld=%s' % ld_path,'-lm','-rdynamic','-lxaiengine','-lmetal','-lopen_amp','-ldl']
       else:
-        cmd += ['-fuse-ld=lld','-lm','-rdynamic','-lxaiengine','-ldl']
+        cmd += ['-fuse-ld=%s' % ld_path,'-lm','-rdynamic','-lxaiengine','-ldl']
     
 
       if(len(opts.arm_args) > 0):
