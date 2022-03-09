@@ -211,8 +211,10 @@ def main(builtin_params={}):
       os.environ['AIETOOLS'] = aietools_path
 
       aietools_bin_path = os.path.join(aietools_path, "bin")
-      os.environ['PATH'] = os.pathsep.join([vitis_bin_path,
-        aietools_bin_path, os.environ['PATH']])
+      os.environ['PATH'] = os.pathsep.join([
+        os.environ['PATH'],
+        aietools_bin_path,
+        vitis_bin_path])
 
     # This path should be generated from cmake
     os.environ['PATH'] = os.pathsep.join([aie_path, os.environ['PATH']])
