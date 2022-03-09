@@ -57,6 +57,19 @@ To test MLIR-AIE:
 cmake --build build --target check-aie
 ```
 
+### 3. Generate ELF of benchmarks
+
+```sh
+LD=lld-10 VITIS=[path_to_vitis] \
+  aiecc.py -v --aie-generate-xaiev2
+    --sysroot=[path_to_sysroot]
+    test/benchmarks/01*/*
+    runtime_lib/test_library.cpp
+    -I runtime_lib/ -o kernel.elf
+
+file kernel.elf
+```
+
 Cheers! 🍺
 
 -----
