@@ -18,7 +18,7 @@ git clone https://github.com/heterosys/mlir-aie.git
 cd mlir-aie
 git clone --depth 1 https://github.com/Xilinx/cmakeModules.git
 
-sudo apt-get install -y build-essential python3-pip libboost-all-dev
+sudo apt-get install -y build-essential python3-pip libboost-all-dev ldd-10
 pip3 install cmake ninja lit psutil
 ```
 
@@ -55,6 +55,19 @@ To test MLIR-AIE:
 
 ```sh
 cmake --build build --target check-aie
+```
+
+### 3. Generate ELF of benchmarks
+
+```sh
+LD=lld-10 VITIS=[path_to_vitis] \
+  aiecc.py -v --aie-generate-xaiev2
+    --sysroot=[path_to_sysroot]
+    test/benchmarks/01*/*
+    runtime_lib/test_library.cpp
+    -I runtime_lib/ -o kernel.elf
+
+file kernel.elf
 ```
 
 Cheers! 🍺

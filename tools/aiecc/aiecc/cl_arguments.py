@@ -18,6 +18,10 @@ def parse_args():
     parser.add_argument('filename',
             metavar="file",
             help='MLIR file to compile')
+    parser.add_argument('--target',
+            metavar="target",
+            default="aarch64-xilinx-linux",
+            help='target for cross-compilation')
     parser.add_argument('--sysroot',
             metavar="sysroot",
             default="",
