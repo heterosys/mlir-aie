@@ -40,14 +40,19 @@ rm -f "${TEMP_DEB}"
 
 Please update the variable `LLVM_VERSION` according to `.github/scripts/install-build-deps.sh`.
 
+Or alternatively, build LLVM from scratch using the commit hash in `utils/clone-llvm.sh`.  When building manually, remember to enable `clang;lld;mlir` in `-DLLVM_ENABLE_PROJECTS` and `X86;ARM;AArch64` in `-DLLVM_TARGETS_TO_BUILD`.  `-DLLVM_BUILD_UTILS=ON` and `-DLLVM_INSTALL_UTILS=ON` shall be set as well.
+
 ### 2. Build MLIR-AIE
 
 ```sh
 cmake -S . -B build \
   -DCMAKE_BUILD_TYPE=Debug \
   -DLLVM_EXTERNAL_LIT=`which lit` \
-  -DCMAKE_MODULE_PATH=../cmakeModules \
+  -DCMAKE_MODULE_PATH=$(pwd)/cmakeModules \
   -DCMAKE_MAKE_PROGRAM=ninja -G Ninja
+  # If you build llvm-project manually, add the following options:
+  # -DLLVM_DIR=${absolute path to llvm-project}/build/lib/cmake/llvm
+  # -DMLIR_DIR=${absolute path to llvm-project}/build/lib/cmake/mlir
 cmake --build build --target all
 ```
 
