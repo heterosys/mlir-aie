@@ -447,6 +447,7 @@ struct AIECoreToStandardPass
                        AIEOpRemoval<AIE::ShimMuxOp>,
                        AIEOpRemoval<AIE::SwitchboxOp>,
                        AIEOpRemoval<AIE::LockOp>,
+                       AIEOpRemoval<AIE::UseLockOp>,
                        AIEOpRemoval<AIE::BufferOp>,
                        AIEOpRemoval<AIE::ExternalBufferOp>
                       >(m.getContext(), m);
