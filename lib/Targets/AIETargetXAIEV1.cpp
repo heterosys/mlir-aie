@@ -279,14 +279,26 @@ mlir::LogicalResult AIETranslateToXAIEV1(ModuleOp module, raw_ostream &output) {
       int acqValue = 0, relValue = 0;
       StringRef acqEnable = disable;
       StringRef relEnable = disable;
-      int lockID;
+      int lockID = -1;
       for (auto op : block.getOps<UseLockOp>()) {
         LockOp lock = dyn_cast<LockOp>(op.lock().getDefiningOp());
+        if (lockID != -1 && lockID != lock.getLockID()) {
+          op->emitError("Each DmaBd can use up to one lock.");
+          return failure();
+        }
         lockID = lock.getLockID();
         if (op.acquire()) {
+          if (acqEnable == enable && acqValue != op.getLockValue()) {
+            op->emitError("Each DmaBd can acquire up to one state.");
+            return failure();
+          }
           acqEnable = enable;
           acqValue = op.getLockValue();
         } else if (op.release()) {
+          if (relEnable == enable && relValue != op.getLockValue()) {
+            op->emitError("Each DmaBd can release up to one state.");
+            return failure();
+          }
           relEnable = enable;
           relValue = op.getLockValue();
         }
@@ -430,12 +442,24 @@ mlir::LogicalResult AIETranslateToXAIEV1(ModuleOp module, raw_ostream &output) {
       int lockID = 0;
       for (auto op : block.getOps<UseLockOp>()) {
         LockOp lock = dyn_cast<LockOp>(op.lock().getDefiningOp());
+        if (hasLock && lockID != lock.getLockID()) {
+          op->emitError("Each ShimBd can use up to one lock.");
+          return failure();
+        }
         lockID = lock.getLockID();
         hasLock = true;
         if (op.acquire()) {
+          if (acqEnable == enable && acqValue != op.getLockValue()) {
+            op->emitError("Each ShimBd can acquire up to one state.");
+            return failure();
+          }
           acqEnable = enable;
           acqValue = op.getLockValue();
         } else if (op.release()) {
+          if (relEnable == enable && relValue != op.getLockValue()) {
+            op->emitError("Each ShimBd can release up to one state.");
+            return failure();
+          }
           relEnable = enable;
           relValue = op.getLockValue();
         }
