@@ -734,6 +734,72 @@ mlir::LogicalResult AIETranslateToXAIEV2(ModuleOp module, raw_ostream &output) {
 
   output << "} // mlir_aie_configure_switchboxes\n\n";
 
+  // Output Lock Accessors
+  // accessors[accName][accState] = {(lockOp, phyState), ...}
+  DenseMap<StringRef, DenseMap<int, SmallVector<std::pair<LockOp, int>, 4>>>
+      accessors;
+
+  for (auto lock : module.getOps<LockOp>()) {
+    // skipping locks without names
+    if (!lock.hasName())
+      continue;
+    auto accName(lock.name().getValue());
+
+    for (int phyState = 0; phyState < 2; phyState++) {
+      auto accState = lock.getAccessorState(phyState);
+      accessors[accName][accState].push_back(std::make_pair(lock, phyState));
+    }
+  }
+
+  for (auto accessor : accessors) {
+    auto accName = accessor.first;
+    // bool mlir_aie_release_acc_name(ctx_p, int state, int timeout) {
+    //   if (state == accState) {
+    //     if (!XAieTile_LockRelease(phyState, timeout))
+    //       return false;
+    //     // ...
+    //     return true;
+    //   } else if // ...
+    //   } else return false;
+    // }
+    auto actions = {std::make_pair("release", "XAie_LockRelease"),
+                    std::make_pair("acquire", "XAie_LockAcquire")};
+    auto outputUseLock = [&NL, &output, &deviceInstRef](
+                             LockOp lock, int phyState, std::string callName,
+                             std::string timeout) {
+      auto tileOp = lock.tile().getDefiningOp();
+      std::pair<int, int> coord = NL.getCoord(tileOp);
+      auto tileLoc = tileLocStr(coord.first, coord.second);
+      output << callName << "(" << deviceInstRef << ", " << tileLoc << ", "
+             << lock.getLockID() << ", " << phyState << ", " << timeout << ")";
+    };
+
+    for (auto action : actions) {
+      auto funcName = action.first;
+      auto callName = action.second;
+      output << "inline bool mlir_aie_" << funcName << "_" << accName << "("
+             << ctx_p << ", int state, int timeout) {\n  ";
+
+      for (auto state : accessor.second) {
+        auto accState = state.first;
+        output << "if (state == " << accState << ") {\n";
+
+        for (auto lockState : state.second) {
+          auto lock = lockState.first;
+          auto phyState = lockState.second;
+          output << "    if (!";
+          outputUseLock(lock, phyState, callName, "timeout");
+          output << ")\n      return false;\n";
+        }
+
+        output << "    return true;\n";
+        output << "  } else ";
+      }
+
+      output << "return false;\n}\n";
+    }
+  }
+
   //---------------------------------------------------------------------------
   // Output Buffer Accessors
   //---------------------------------------------------------------------------
