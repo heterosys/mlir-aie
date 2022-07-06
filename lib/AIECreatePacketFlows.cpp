@@ -8,6 +8,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "aie/AIEConversionPatterns.h"
 #include "aie/AIEDialect.h"
 #include "aie/AIENetlistAnalysis.h"
 #include "mlir/IR/Attributes.h"
