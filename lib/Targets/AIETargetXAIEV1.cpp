@@ -785,6 +785,36 @@ mlir::LogicalResult AIETranslateToXAIEV1(ModuleOp module, raw_ostream &output) {
 
   output << "} // mlir_aie_configure_switchboxes\n\n";
 
+  // Output Lock Accessors
+  for (auto lock : module.getOps<LockOp>()) {
+    auto tileOp = lock.tile().getDefiningOp();
+    std::pair<int, int> coord = NL.getCoord(tileOp);
+    int col = coord.first, row = coord.second;
+    auto tileInst = tileInstStr(col, row);
+
+    // skipping locks without names
+    if (!lock.hasName())
+      continue;
+    std::string lockName(lock.name().getValue());
+
+    // bool mlir_aie_release_lock_sym_name(ctx_p, int state, int timeout) {
+    //   return XAieTile_LockRelease(tileInstStr(col, row), lockId, state, timeout);
+    // }
+    // bool mlir_aie_acquire_lock_sym_name(ctx_p, int state, int timeout) {
+    //   return XAieTile_LockAcquire(tileInstStr(col, row), lockId, state, timeout);
+    // }
+    output << "bool mlir_aie_release_lock_" << lockName << "(" << ctx_p
+           << ", int state, int timeout) {\n";
+    output << "  return XAieTile_LockRelease(" << tileInst << ", "
+           << lock.getLockID() << ", state, timeout);\n";
+    output << "}\n";
+    output << "bool mlir_aie_acquire_lock_" << lockName << "(" << ctx_p
+           << ", int state, int timeout) {\n";
+    output << "  return XAieTile_LockAcquire(" << tileInst << ", "
+           << lock.getLockID() << ", state, timeout);\n";
+    output << "}\n";
+  }
+
   // Output Buffer Accessors
   for (auto tile : tiles) {
     Operation *tileOp = tile.second;
