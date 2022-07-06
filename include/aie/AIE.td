@@ -1089,13 +1089,16 @@ def AIE_LockOp: AIE_Op<"lock", []>, Results<(outs Index)> {
     Example:
     ```
       %tile33 = AIE.tile(3, 3)
-      %lck = AIE.lock(%tile33, 7)
+      %lck = AIE.lock(%tile33, 7) { sym_name = 'lock' }
     ```
     This operation represents a lock that lives in the Memory module of Tile(3, 3) with a lockID of 7
 
     Case when LockID is not assigned:
       Before AIEAssignLockIDs: %tile33 = AIE.tile(3)
       After AIEAssignLockIDs: %tile33 = AIE.tile(3, $assigned_value)
+
+    The `sym_name` attribute is optional.  When specified, the lock can be accessed in the host code
+    using its symbol name, for example, `lock` in the code above.
   }];
   let arguments = (
     ins Index:$tile,
@@ -1106,6 +1109,22 @@ def AIE_LockOp: AIE_Op<"lock", []>, Results<(outs Index)> {
     int getLockID() { 
       assert(lockID().hasValue() && "Lock has no ID value");
       return lockID().getValue();
+    }
+    bool hasName() {
+      if(auto attr = getOperation()->getAttrOfType<StringAttr>(SymbolTable::getSymbolAttrName())) {
+        return true;
+      } else {
+        return false;
+      }
+    }
+    StringAttr name() {
+      if(auto attr = getOperation()->getAttrOfType<StringAttr>(SymbolTable::getSymbolAttrName())) {
+        return attr;
+      } else {
+        emitOpError("does not have '") << SymbolTable::getSymbolAttrName() <<
+          "' attribute specified";
+      }
+      llvm_unreachable("unreachable");
     }
   }];
   let builders = [
