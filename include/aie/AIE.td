@@ -1088,16 +1088,30 @@ def AIE_LockOp: AIE_Op<"lock", []>, Results<(outs Index)> {
     Example:
     ```
       %tile33 = AIE.tile(3, 3)
-      %lck = AIE.lock(%tile33, 7) { sym_name = 'lock' }
+      %lck = AIE.lock(%tile33, 7) { access_name = 'lock' }
     ```
-    This operation represents a lock that lives in the Memory module of Tile(3, 3) with a lockID of 7
 
     Case when LockID is not assigned:
       Before AIEAssignLockIDs: %tile33 = AIE.tile(3)
       After AIEAssignLockIDs: %tile33 = AIE.tile(3, $assigned_value)
 
-    The `sym_name` attribute is optional.  When specified, the lock can be accessed in the host code
-    using its symbol name, for example, `lock` in the code above.
+    This operation represents a lock that lives in the Memory module of Tile(3, 3) with a lockID of 7.
+    The `access_name` attribute is optional.  When specified, the lock can be accessed in the host code
+    using its accessor name, for example, `lock` in the code above.
+
+    Multiple locks could share the same accessor, and acquiring a state of a accessor is equivalent to
+    acquiring the state on all locks.  The 0/1 states of the lock could be mapped into different states
+    of the accessor using `zero_state` and `one_state`.  For example:
+
+    ```
+      %tile33 = AIE.tile(3, 3)
+      %lck1 = AIE.lock(%tile33, 7) { access_name = 'lock', zero_state = 1, one_state = 2 }
+      %lck2 = AIE.lock(%tile33, 6) { access_name = 'lock', zero_state = 2, one_state = 3 }
+    ```
+
+    In this code, acquiring the state 2 of accessor `lock` will acquire the state 1 of %lck1 and the
+    state 0 of %lck2.  This is useful when manipulating multiple locks at the same time, or using locks
+    to implement logical tokens.
   }];
   let arguments = (
     ins Index:$tile,
@@ -1110,20 +1124,29 @@ def AIE_LockOp: AIE_Op<"lock", []>, Results<(outs Index)> {
       return getLockID().value();
     }
     bool hasName() {
-      if(auto attr = getOperation()->getAttrOfType<StringAttr>(SymbolTable::getSymbolAttrName())) {
+      if(auto attr = getOperation()->getAttrOfType<StringAttr>("access_name")) {
         return true;
       } else {
         return false;
       }
     }
     StringAttr name() {
-      if(auto attr = getOperation()->getAttrOfType<StringAttr>(SymbolTable::getSymbolAttrName())) {
+      if(auto attr = getOperation()->getAttrOfType<StringAttr>("access_name")) {
         return attr;
       } else {
-        emitOpError("does not have '") << SymbolTable::getSymbolAttrName() <<
-          "' attribute specified";
+        emitOpError("does not have 'access_name' attribute specified");
       }
       llvm_unreachable("unreachable");
+    }
+    int getAccessorState(int physicalState) {
+      if (physicalState == 0) {
+        if (auto state = getOperation()->getAttrOfType<IntegerAttr>("zero_state"))
+          return state.getValue().getSExtValue();
+      } else if (physicalState == 1) {
+        if (auto state = getOperation()->getAttrOfType<IntegerAttr>("one_state"))
+          return state.getValue().getSExtValue();
+      }
+      return physicalState;
     }
   }];
   let builders = [
