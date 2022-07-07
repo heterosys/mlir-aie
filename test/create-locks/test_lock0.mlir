@@ -12,10 +12,10 @@
 
 // CHECK-LABEL: module @test_lock0 {
 // CHECK:  %0 = AIE.tile(3, 3)
-// CHECK:  %1 = AIE.lock(%0, 0)
+// CHECK:  %1 = AIE.lock(%0, 0) {access_name = "token0", one_state = -1 : i32, zero_state = 0 : i32}
 // CHECK:  AIE.useLock(%1, Release, 0)
 // CHECK:  %2 = AIE.tile(2, 3)
-// CHECK:  %3 = AIE.lock(%2, 0)
+// CHECK:  %3 = AIE.lock(%2, 0) {access_name = "token0", one_state = 2 : i32, zero_state = 1 : i32}
 // CHECK:  AIE.useLock(%3, Acquire, 0)
 // CHECK:  %6 = AIE.core(%0) {
 // CHECK:    AIE.useLock(%1, Acquire, 0)

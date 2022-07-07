@@ -12,19 +12,19 @@
 
 // CHECK-LABEL: module @test_lock4 {
 // CHECK:  %0 = AIE.tile(5, 5)
-// CHECK:  %1 = AIE.lock(%0, 1)
+// CHECK:  %1 = AIE.lock(%0, 1) {access_name = "token2", one_state = -1 : i32, zero_state = 2 : i32}
 // CHECK:  AIE.useLock(%1, Acquire, 0)
-// CHECK:  %2 = AIE.lock(%0, 0)
+// CHECK:  %2 = AIE.lock(%0, 0) {access_name = "token2", one_state = 0 : i32, zero_state = 1 : i32}
 // CHECK:  AIE.useLock(%2, Release, 1)
 // CHECK:  %3 = AIE.tile(4, 4)
-// CHECK:  %4 = AIE.lock(%3, 1)
+// CHECK:  %4 = AIE.lock(%3, 1) {access_name = "token1", one_state = 2 : i32, zero_state = 3 : i32}
 // CHECK:  AIE.useLock(%4, Acquire, 0)
-// CHECK:  %5 = AIE.lock(%3, 0)
+// CHECK:  %5 = AIE.lock(%3, 0) {access_name = "token1", one_state = 0 : i32, zero_state = 1 : i32}
 // CHECK:  AIE.useLock(%5, Release, 1)
 // CHECK:  %6 = AIE.tile(3, 3)
-// CHECK:  %7 = AIE.lock(%6, 1)
+// CHECK:  %7 = AIE.lock(%6, 1) {access_name = "token0", one_state = -1 : i32, zero_state = 0 : i32}
 // CHECK:  AIE.useLock(%7, Release, 0)
-// CHECK:  %8 = AIE.lock(%6, 0)
+// CHECK:  %8 = AIE.lock(%6, 0) {access_name = "token0", one_state = 1 : i32, zero_state = 2 : i32}
 // CHECK:  AIE.useLock(%8, Acquire, 0)
 // CHECK:  %12 = AIE.mem(%6) {
 // CHECK:    AIE.useLock(%8, Acquire, 1)

@@ -13,7 +13,7 @@
 // CHECK-LABELs: module @test_lock_shimdma  {
 // CHECK:  %0 = AIE.external_buffer 0 : memref<256xi32>
 // CHECK:  %1 = AIE.tile(6, 0)
-// CHECK:  %2 = AIE.lock(%1, 0)
+// CHECK:  %2 = AIE.lock(%1, 0) {access_name = "token1", one_state = 0 : i32, zero_state = 1 : i32}
 // CHECK:  AIE.useLock(%2, Release, 1)
 // CHECK:  %3 = AIE.shimDMA(%1) {
 // CHECK:    AIE.useLock(%2, Acquire, 1)
@@ -21,7 +21,7 @@
 // CHECK:    AIE.useLock(%2, Release, 0)
 // CHECK:  }
 // CHECK:  %4 = AIE.tile(3, 3)
-// CHECK:  %5 = AIE.lock(%4, 0)
+// CHECK:  %5 = AIE.lock(%4, 0) {access_name = "token0", one_state = 1 : i32, zero_state = 0 : i32}
 // CHECK:  %6 = AIE.buffer(%4) : memref<256xi32>
 // CHECK:  %7 = AIE.core(%4) {
 // CHECK:    AIE.useLock(%5, Acquire, 0)
