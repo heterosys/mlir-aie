@@ -73,8 +73,8 @@ struct LowerAIEMemcpy : public OpConversionPattern<MemcpyOp> {
     Value dstBuf = op.getDstBuf();
 
     StringRef tokenName = op.getTokenName();
-    int acquireTknVal = op.getAcquireTokenValue();
-    int releaseTknVal = op.getReleaseTokenValue();
+    int acquireTknVal = op.getAcquireTokenUser();
+    int releaseTknVal = op.getReleaseTokenUser();
     int srcOffset = op.getSrcOffsetValue();
     int dstOffset = op.getDstOffsetValue();
     int srcLen = op.getSrcLenValue();
