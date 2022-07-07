@@ -28,9 +28,9 @@ void xilinx::AIE::TokenAnalysis::runAnalysis() {
     StringRef tokenName =
         op->getAttrOfType<StringAttr>(::mlir::SymbolTable::getSymbolAttrName())
             .getValue();
-    int value = op.getTokenValue();
-    tokenSymbols[tokenName] = value;
-    tokenValues[tokenName].insert(value);
+    int owner = op.getTokenInitialOwner();
+    tokenSymbols[tokenName] = owner;
+    tokenUsers[tokenName].insert(owner);
   }
 
   // Collect all the UseTokenOps and MemcpyOps
@@ -50,16 +50,16 @@ void xilinx::AIE::TokenAnalysis::runAnalysis() {
           tokenPairs.push_back(std::make_pair(previousOp, Op));
         }
       }
-      tokenValues[tokenName].insert(op.getTokenValue());
+      tokenUsers[tokenName].insert(op.getTokenUser());
 
     } else if (auto op = dyn_cast<MemcpyOp>(Op)) {
       StringRef tokenName = op.tokenName();
       assert(tokenSymbols.find(tokenName) != tokenSymbols.end() &&
              "Token not found!");
       tokenAcqMap[tokenName].push_back(Op);
-      tokenValues[tokenName].insert(op.getAcquireTokenValue());
+      tokenUsers[tokenName].insert(op.getAcquireTokenUser());
       tokenRelMap[tokenName].push_back(Op);
-      tokenValues[tokenName].insert(op.getReleaseTokenValue());
+      tokenUsers[tokenName].insert(op.getReleaseTokenUser());
       tokenPairs.push_back(std::make_pair(Op, Op));
     }
   });
@@ -163,15 +163,15 @@ xilinx::AIE::TokenAnalysis::getAccessibleTileOp(Operation *Op) {
 }
 
 std::pair<StringRef, int>
-xilinx::AIE::TokenAnalysis::getTokenUseNameValue(Operation *Op, bool acquire) {
+xilinx::AIE::TokenAnalysis::getTokenUseNameUser(Operation *Op, bool acquire) {
   if (auto mop = dyn_cast<MemcpyOp>(Op)) {
     if (acquire) {
-      return std::make_pair(mop.tokenName(), mop.getAcquireTokenValue());
+      return std::make_pair(mop.tokenName(), mop.getAcquireTokenUser());
     } else {
-      return std::make_pair(mop.tokenName(), mop.getReleaseTokenValue());
+      return std::make_pair(mop.tokenName(), mop.getReleaseTokenUser());
     }
   } else if (auto utop = dyn_cast<UseTokenOp>(Op)) {
-    return std::make_pair(utop.tokenName(), utop.value());
+    return std::make_pair(utop.tokenName(), utop.user());
   }
   assert(false && "unknown token use operation.");
 }

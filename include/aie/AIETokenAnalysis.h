@@ -34,8 +34,8 @@ class TokenAnalysis {
   ModuleOp &module;
   // tokenSymbols[name] == initialValue
   DenseMap<StringRef, int> tokenSymbols;
-  // tokenValues[name] == {value, ...}
-  DenseMap<StringRef, SmallSet<int, 4>> tokenValues;
+  // tokenUsers[name] == {value, ...}
+  DenseMap<StringRef, SmallSet<int, 4>> tokenUsers;
   // tokenAcqMap[name] == {UseTokenOp/MemcpyOp, ...} (Acquire)
   DenseMap<StringRef, SmallVector<Operation *>> tokenAcqMap;
   // tokenRelMap[name] == {UseTokenOp/MemcpyOp, ...} (Release)
@@ -53,7 +53,7 @@ public:
   void runAnalysis();
 
   auto &getTokenSymbols() { return tokenSymbols; }
-  auto &getTokenValues() { return tokenValues; }
+  auto &getTokenUsers() { return tokenUsers; }
   auto &getTokenAcqMap() { return tokenAcqMap; }
   auto &getTokenRelMap() { return tokenRelMap; }
   auto &getTokenPairs() { return tokenPairs; }
@@ -64,7 +64,7 @@ public:
   Operation *getTokenUserOp(Operation *Op);
   SmallSet<TileOp, 4> getAccessibleTileOp(Operation *Op);
   std::pair<int, int> getCoord(Operation *Op);
-  std::pair<StringRef, int> getTokenUseNameValue(Operation *Op, bool acquire);
+  std::pair<StringRef, int> getTokenUseNameUser(Operation *Op, bool acquire);
 
   void print(raw_ostream &os);
 };

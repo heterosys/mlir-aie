@@ -1278,51 +1278,56 @@ def AIE_ExternalBufferOp: AIE_Op<"external_buffer", []>, Results<(outs AnyMemRef
 }
 
 def AIE_TokenOp: AIE_Op<"token", [Symbol]> {
-  let summary = "Declare a token (a logical lock)";
+  let summary = "Declare a token (an ownership of a resource)";
   let description = [{
-    This operation creates a logical lock. We use Symbol so that it can be referenced globally.
-    Unlike phsical locks, logical locks are unlimited, and we can specify any integer value
-    associated with a lock. The logical lock is used to manually specify the dependence of tasks, or
-    core executions.
-
-    The operation can also be generated automatically if the Dependence Analysis can be leveraged.
+    This operation creates a logical lock to declare the current ownership of a resource. We use
+    Symbol so that it can be referenced globally.  Unlike physical locks, logical locks are
+    unlimited, and instead of two states in a physical lock for two accessors of the resource, we
+    can have an arbitrary number of "users" in a token.  When a token is held, the holder has 
+    temporary ownership of the resource, and those other users cannot gain the token meanwhile.
+    The current owner of a token could release the token to another specific requestor. The token
+    can be used to specify the dependence of tasks, or core executions on a resource, for example,
+    a buffer.
 
     Example:
-      AIE.token(0) {sym_name = "token0"} // Declare token0 with initial value of 0
+      %buf = AIE.buffer(%tile33) : memref<256xi64>
+      AIE.token(0) {sym_name = "buf_token"} // Declare an AIE.token, named buf_token.
+      // Initially, buf_token is owned by user #0 and user #0 can acquire it.
 
       ...
 
-      AIE.useToken @token0("Acquire", 0) // acquire token0 if its value is 0
+      AIE.useToken @buf_token("Acquire", 0) // Acquire buf_token's ownership as the user #0.
 
       ...
 
-      AIE.useToken @token0("Release", 5) // release token0 and set its value to 5
+      AIE.useToken @buf_token("Release", 5) // Release token0 and allow the user #5 to acquire it.
 
   }];
-  let arguments = (ins I32Attr:$value);
-  let assemblyFormat = [{ `(` $value `)` attr-dict }];
+  let arguments = (ins I32Attr:$initialOwner);
+  let assemblyFormat = [{ `(` $initialOwner `)` attr-dict }];
   let extraClassDeclaration = [{
-    int getTokenValue() { return value(); }
+    int getTokenInitialOwner() { return initialOwner(); }
   }];
 }
 
 def AIE_UseTokenOp: AIE_Op<"useToken", []> {
   let summary = "acquire/release a logical lock";
   let description = [{
-    This operation uses token (logical lock). A logical lock can be acquired or released with a value.
-    Similar to UseLockOp, this operation can be understood as "blocking" op.
+    This operation uses a token (logical lock). A logical lock can be acquired by a user, or
+    released to another user.  Similar to UseLockOp, this operation can be understood as
+    "blocking" op.
   }];
   let arguments = (
     ins FlatSymbolRefAttr:$tokenName,
-        I32Attr:$value,
+        I32Attr:$user,
         LockAction:$action
   );
-  let assemblyFormat = [{ $tokenName `(` $action `,` $value `)` attr-dict }];
+  let assemblyFormat = [{ $tokenName `(` $action `,` $user `)` attr-dict }];
   let hasVerifier = 1;
   let extraClassDeclaration = [{
     bool acquire() { return (action() == LockAction::Acquire); }
     bool release() { return (action() == LockAction::Release); }
-    int getTokenValue() { return value(); }
+    int getTokenUser() { return user(); }
   }];
 }
 
@@ -1355,8 +1360,8 @@ def AIE_MemcpyOp: AIE_Op<"memcpy", []> {
         attr-dict `:` `(` type($srcBuf) `,` type($dstBuf) `)`
   }];
   let extraClassDeclaration = [{
-    int getAcquireTokenValue() { return acqValue(); }
-    int getReleaseTokenValue() { return relValue(); }
+    int getAcquireTokenUser() { return acqValue(); }
+    int getReleaseTokenUser() { return relValue(); }
     int getSrcOffsetValue() { return srcOffset(); }
     int getDstOffsetValue() { return dstOffset(); }
     int getSrcLenValue() { return srcLen(); }
