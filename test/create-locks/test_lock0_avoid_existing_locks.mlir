@@ -13,7 +13,7 @@
 // CHECK-LABEL: module @test_lock0_reuse {
 // CHECK:  %0 = AIE.tile(3, 3)
 // CHECK:  %1 = AIE.tile(2, 3)
-// CHECK:  %2 = AIE.lock(%1, 1)
+// CHECK:  %2 = AIE.lock(%1, 1) {access_name = "token0", one_state = 1 : i32, zero_state = 0 : i32}
 // CHECK:  AIE.useLock(%2, Release, 0)
 // CHECK:  %6 = AIE.core(%0) {
 // CHECK:    AIE.useLock(%2, Acquire, 0)
