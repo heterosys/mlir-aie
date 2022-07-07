@@ -1315,7 +1315,7 @@ operation ::= `AIE.token` `(` $initialOwner `)` attr-dict
 This operation creates a logical lock to declare the current ownership of a resource. We use
 Symbol so that it can be referenced globally.  Unlike physical locks, logical locks are
 unlimited, and instead of two states in a physical lock for two accessors of the resource, we
-can have an arbitary number of "users" in a token.  When a token is held, the holder has the
+can have an arbitrary number of "users" in a token.  When a token is held, the holder has 
 temporary ownership of the resource, and those other users cannot gain the token meanwhile.
 The current owner of a token could release the token to another specific requestor. The token
 can be used to specify the dependence of tasks, or core executions on a resource, for example,
@@ -1324,7 +1324,7 @@ a buffer.
 Example:
   %buf = AIE.buffer(%tile33) : memref<256xi64>
   AIE.token(0) {sym_name = "buf_token"} // Declare an AIE.token, named buf_token.
-  // Initially, buf_token is owned by the user #0 and the user #0 can acquire it.
+  // Initially, buf_token is owned by user #0 and user #0 can acquire it.
 
   ...
 
@@ -1385,7 +1385,7 @@ Syntax:
 operation ::= `AIE.useToken` $tokenName `(` $action `,` $user `)` attr-dict
 ```
 
-This operation uses token (logical lock). A logical lock can be acquired by an user, or
+This operation uses a token (logical lock). A logical lock can be acquired by a user, or
 released to another user.  Similar to UseLockOp, this operation can be understood as
 "blocking" op.
 
