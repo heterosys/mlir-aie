@@ -61,6 +61,49 @@ struct Token2LockLowering : public OpConversionPattern<UseTokenOp> {
   }
 };
 
+struct LockStateMapping : public OpRewritePattern<LockOp> {
+  ModuleOp &module;
+  DenseMap<std::pair<StringRef, int>, std::pair<LockOp, int>>
+      &tokenUser2lockState;
+
+  LockStateMapping(MLIRContext *context, ModuleOp &m,
+                   DenseMap<std::pair<StringRef, int>, std::pair<LockOp, int>>
+                       &tokenUser2lockState,
+                   PatternBenefit benefit = 1)
+      : OpRewritePattern<LockOp>(context, benefit), module(m),
+        tokenUser2lockState(tokenUser2lockState) {}
+
+  LogicalResult matchAndRewrite(LockOp op,
+                                PatternRewriter &rewriter) const override {
+    rewriter.startRootUpdate(op);
+
+    int states[2] = {-1, -1};
+    bool mappedToToken = false;
+    
+    for (auto &pair : tokenUser2lockState) {
+      auto tokenUser = pair.first;
+      auto lockState = pair.second;
+
+      if (lockState.first != op)
+        continue;
+
+      // Mapping the symbol name to the corresponding token name
+      op->setAttr("access_name", rewriter.getStringAttr(tokenUser.first));
+      mappedToToken = true;
+      states[lockState.second] = tokenUser.second;
+    }
+
+    // Mapping the physical lock state to the corresponding logical states
+    if (mappedToToken) {
+      op->setAttr("zero_state", rewriter.getI32IntegerAttr(states[0]));
+      op->setAttr("one_state", rewriter.getI32IntegerAttr(states[1]));
+    }
+
+    rewriter.finalizeRootUpdate(op);
+    return success();
+  }
+};
+
 static LockOp
 allocateFullLock(DenseMap<int, DenseMap<int, StringRef>> &lockUsedStates,
                  DenseMap<int, LockOp> &tileLocks, TileOp tile,
@@ -336,23 +379,29 @@ struct AIECreateLocksPass : public AIECreateLocksBase<AIECreateLocksPass> {
     mapTokenUsers(TA, builder);
     initializeLocks(builder);
 
-    { // converting UseTokenOps to UseLockOps
-      ConversionTarget target(getContext());
-      target.addLegalOp<UseLockOp>();
-      RewritePatternSet patterns(&getContext());
-      patterns.insert<Token2LockLowering>(m.getContext(), m,
-                                          tokenUser2lockState);
-      if (failed(applyPartialConversion(m, target, std::move(patterns))))
-        signalPassFailure();
-    }
+    ConversionTarget target(getContext());
+    target.addLegalOp<UseLockOp>();
+    target.addDynamicallyLegalOp<LockOp>([&](LockOp op) {
+      for (auto &pair : tokenUser2lockState) {
+        if (pair.second.first != op)
+          continue;
+        // The lock is used by a token, check if it already has the accessor
+        if (!op.hasName())
+          return false;
+      }
+      return true;
+    });
 
-    { // Removing all TokenOps
-      ConversionTarget target(getContext());
-      RewritePatternSet patterns(&getContext());
-      patterns.insert<AIEOpRemoval<TokenOp>>(m.getContext(), m);
-      if (failed(applyPartialConversion(m, target, std::move(patterns))))
-        signalPassFailure();
-    }
+    RewritePatternSet patterns(&getContext());
+    // Converting UseTokenOps to UseLockOps
+    patterns.insert<Token2LockLowering>(m.getContext(), m, tokenUser2lockState);
+    // Removing all TokenOps
+    patterns.insert<AIEOpRemoval<TokenOp>>(m.getContext(), m);
+    // Mapping LockOps states with tokenUser2lockState
+    patterns.insert<LockStateMapping>(m.getContext(), m, tokenUser2lockState);
+
+    if (failed(applyPartialConversion(m, target, std::move(patterns))))
+      signalPassFailure();
   }
 };
 
