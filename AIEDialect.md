@@ -623,9 +623,25 @@ This operation creates a physical lock.
 Example:
 ```
   %tile33 = AIE.tile(3, 3)
-  %lck = AIE.lock(%tile33, 7)
+  %lck = AIE.lock(%tile33, 7) { access_name = 'lock' }
 ```
-This operation represents a lock that lives in the Memory module of Tile(3, 3) with a lockID of 7
+This operation represents a lock that lives in the Memory module of Tile(3, 3) with a lockID of 7.
+The `access_name` attribute is optional.  When specified, the lock can be accessed in the host code
+using its accessor name, for example, `lock` in the code above.
+
+Multiple locks could share the same accessor, and acquiring a state of a accessor is equivalent to
+acquiring the state on all locks.  The 0/1 states of the lock could be mapped into different states
+of the accessor using `zero_state` and `one_state`.  For example:
+
+```
+  %tile33 = AIE.tile(3, 3)
+  %lck1 = AIE.lock(%tile33, 7) { access_name = 'lock', zero_state = 1, one_state = 2 }
+  %lck2 = AIE.lock(%tile33, 6) { access_name = 'lock', zero_state = 2, one_state = 3 }
+```
+
+In this code, acquiring the state 2 of accessor `lock` will acquire the state 1 of %lck1 and the
+state 0 of %lck2.  This is useful when manipulating multiple locks at the same time, or using locks
+to implement logical tokens.
 
 #### Attributes:
 
@@ -1287,32 +1303,36 @@ Interfaces: FlowEndPoint
 
 ### `AIE.token` (::xilinx::AIE::TokenOp)
 
-Declare a token (a logical lock)
+Declare a token (an ownership of a resource)
 
 
 Syntax:
 
 ```
-operation ::= `AIE.token` `(` $value `)` attr-dict
+operation ::= `AIE.token` `(` $initialOwner `)` attr-dict
 ```
 
-This operation creates a logical lock. We use Symbol so that it can be referenced globally.
-Unlike phsical locks, logical locks are unlimited, and we can specify any integer value
-associated with a lock. The logical lock is used to manually specify the dependence of tasks, or
-core executions.
-
-The operation can also be generated automatically if the Dependence Analysis can be leveraged.
+This operation creates a logical lock to declare the current ownership of a resource. We use
+Symbol so that it can be referenced globally.  Unlike physical locks, logical locks are
+unlimited, and instead of two states in a physical lock for two accessors of the resource, we
+can have an arbitrary number of "users" in a token.  When a token is held, the holder has 
+temporary ownership of the resource, and those other users cannot gain the token meanwhile.
+The current owner of a token could release the token to another specific requestor. The token
+can be used to specify the dependence of tasks, or core executions on a resource, for example,
+a buffer.
 
 Example:
-  AIE.token(0) {sym_name = "token0"} // Declare token0 with initial value of 0
+  %buf = AIE.buffer(%tile33) : memref<256xi64>
+  AIE.token(0) {sym_name = "buf_token"} // Declare an AIE.token, named buf_token.
+  // Initially, buf_token is owned by user #0 and user #0 can acquire it.
 
   ...
 
-  AIE.useToken @token0("Acquire", 0) // acquire token0 if its value is 0
+  AIE.useToken @buf_token("Acquire", 0) // Acquire buf_token's ownership as the user #0.
 
   ...
 
-  AIE.useToken @token0("Release", 5) // release token0 and set its value to 5
+  AIE.useToken @buf_token("Release", 5) // Release token0 and allow the user #5 to acquire it.
 
 
 Interfaces: Symbol
@@ -1321,7 +1341,7 @@ Interfaces: Symbol
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-| `value` | ::mlir::IntegerAttr | 32-bit signless integer attribute
+| `initialOwner` | ::mlir::IntegerAttr | 32-bit signless integer attribute
 
 ### `AIE.useLock` (::xilinx::AIE::UseLockOp)
 
@@ -1362,18 +1382,19 @@ acquire/release a logical lock
 Syntax:
 
 ```
-operation ::= `AIE.useToken` $tokenName `(` $action `,` $value `)` attr-dict
+operation ::= `AIE.useToken` $tokenName `(` $action `,` $user `)` attr-dict
 ```
 
-This operation uses token (logical lock). A logical lock can be acquired or released with a value.
-Similar to UseLockOp, this operation can be understood as "blocking" op.
+This operation uses a token (logical lock). A logical lock can be acquired by a user, or
+released to another user.  Similar to UseLockOp, this operation can be understood as
+"blocking" op.
 
 #### Attributes:
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
 | `tokenName` | ::mlir::FlatSymbolRefAttr | flat symbol reference attribute
-| `value` | ::mlir::IntegerAttr | 32-bit signless integer attribute
+| `user` | ::mlir::IntegerAttr | 32-bit signless integer attribute
 | `action` | xilinx::AIE::LockActionAttr | lock acquire/release
 
 ### `AIE.wire` (::xilinx::AIE::WireOp)
