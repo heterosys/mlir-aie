@@ -12,3 +12,8 @@ __pycache__
 /platforms/vck190_bare/vivado/*.xpe
 /platforms/vck190_bare/vivado/*.xsa
 /platforms/vck190_bare/vivado/vck190_bare_proj
+
+/install
+/scratchpad
+/cmakeModules
+*.log
