@@ -40,7 +40,7 @@ struct Token2LockLowering : public OpConversionPattern<UseTokenOp> {
   matchAndRewrite(UseTokenOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
     auto lockState =
-        tokenUser2lockState[std::make_pair(op.tokenName(), op.user())];
+        tokenUser2lockState[std::make_pair(op.getTokenName(), op.getUser())];
 
     LockAction action;
     if (op.acquire()) {
@@ -153,7 +153,7 @@ allocateLockState(DenseMap<int, DenseMap<int, StringRef>> &lockUsedStates,
   auto lock = allocateFullLock(lockUsedStates, tileLocks, tile, builder);
   if (lock == nullptr)
     return std::make_pair(lock, -1);
-  lockUsedStates[lock.getLockID()][0] = tokenName;
+  lockUsedStates[lock.getLockID().value()][0] = tokenName;
   return std::make_pair(lock, 0 /* state */);
 }
 
@@ -233,8 +233,8 @@ struct AIECreateLocksPass : public AIECreateLocksBase<AIECreateLocksPass> {
       auto lock = allocateFullLock(tileLockUsedStates[tileOp],
                                    tileLocks[tileOp], tileOp, builder);
       assert(lock && "No more locks to allocate!");
-      tileLockUsedStates[tileOp][lock.getLockID()][1] = acqPair.first;
-      tileLockUsedStates[tileOp][lock.getLockID()][0] = relPair.first;
+      tileLockUsedStates[tileOp][lock.getLockID().value()][1] = acqPair.first;
+      tileLockUsedStates[tileOp][lock.getLockID().value()][0] = relPair.first;
       tokenUser2lockState[acqPair] = std::make_pair(lock, 1 /* state */);
       tokenUser2lockState[relPair] = std::make_pair(lock, 0 /* state */);
 
@@ -312,7 +312,7 @@ struct AIECreateLocksPass : public AIECreateLocksBase<AIECreateLocksPass> {
         if (tokenUser2lockState.count(valPair)) {
           // if the token is already placed, check if it is a possible tile.
           auto tileOp =
-              tokenUser2lockState[valPair].first.tile().getDefiningOp();
+              tokenUser2lockState[valPair].first.getTile().getDefiningOp();
           assert(possibleTiles.count(dyn_cast<TileOp>(tileOp)) &&
                  "Failed to place the token to a physical tile.");
 

@@ -820,7 +820,7 @@ mlir::LogicalResult AIETranslateToXAIEV1(ModuleOp module, raw_ostream &output) {
     auto outputUseLock = [&NL, &output](LockOp lock, int phyState,
                                         std::string callName,
                                         std::string timeout) {
-      auto tileOp = lock.tile().getDefiningOp();
+      auto tileOp = lock.getTile().getDefiningOp();
       std::pair<int, int> coord = NL.getCoord(tileOp);
       auto tileInst = tileInstStr(coord.first, coord.second);
       output << callName << "(" << tileInst << ", " << lock.getLockID() << ", "
@@ -920,7 +920,7 @@ mlir::LogicalResult AIETranslateToXAIEV1(ModuleOp module, raw_ostream &output) {
       output << "}\n";
     };
 
-    // if(tiles.count(tile.getValue()))
+    // if(tiles.count(tile.value()))
     for (auto buf : buffers[tileOp])
       bufferAccessor(coord, buf);
     // };

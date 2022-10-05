@@ -39,6 +39,8 @@ option(LLVM_BUILD_TOOLS "Build the LLVM tools. If OFF, just generate build targe
 option(AIE_INCLUDE_INTEGRATION_TESTS
        "Generate build targets for the mlir-aie integration tests." OFF)
 
+list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake/modules")
+
 find_package(MLIR REQUIRED CONFIG)
 find_package(Boost REQUIRED)
 

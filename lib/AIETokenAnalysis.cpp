@@ -96,8 +96,8 @@ void xilinx::AIE::TokenAnalysis::runAnalysis() {
 
   // Collecting existing locks
   for (auto lock : module.getOps<LockOp>()) {
-    TileOp tile = dyn_cast<TileOp>(lock.tile().getDefiningOp());
-    tileLocks[tile][lock.getLockID()] = lock;
+    TileOp tile = dyn_cast<TileOp>(lock.getTile().getDefiningOp());
+    tileLocks[tile][lock.getLockID().value()] = lock;
   }
 }
 
@@ -166,12 +166,12 @@ std::pair<StringRef, int>
 xilinx::AIE::TokenAnalysis::getTokenUseNameUser(Operation *Op, bool acquire) {
   if (auto mop = dyn_cast<MemcpyOp>(Op)) {
     if (acquire) {
-      return std::make_pair(mop.tokenName(), mop.getAcquireTokenUser());
+      return std::make_pair(mop.getTokenName(), mop.getAcquireTokenUser());
     } else {
-      return std::make_pair(mop.tokenName(), mop.getReleaseTokenUser());
+      return std::make_pair(mop.getTokenName(), mop.getReleaseTokenUser());
     }
   } else if (auto utop = dyn_cast<UseTokenOp>(Op)) {
-    return std::make_pair(utop.tokenName(), utop.user());
+    return std::make_pair(utop.getTokenName(), utop.getUser());
   }
   assert(false && "unknown token use operation.");
 }
